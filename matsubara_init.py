@@ -24,12 +24,8 @@ def g_nonint_init(ntau, N, mu, H0, beta=1, particle=0, mu_jump=0.5, tolN=1e-6):
     n_orb = H0.shape[0]
     particle_sign = (-1)**particle
     tau = np.linspace(0, beta, ntau)
-    print("Aceeded to g init")
-    
-    assert not np.any(np.isnan(H0))
     
     w, P = eig(H0)
-    print("Eigen H0")
     
     last_sign = 2
     if N>0:
@@ -50,7 +46,6 @@ def g_nonint_init(ntau, N, mu, H0, beta=1, particle=0, mu_jump=0.5, tolN=1e-6):
             last_sign = DNsign
     
     g = np.zeros((ntau, H0.shape[0], H0.shape[1]), dtype=np.complex128)
-    print("g allocated")
     for ii in range(n_orb):
         for jj in range(n_orb):
             for kk in range(n_orb):
