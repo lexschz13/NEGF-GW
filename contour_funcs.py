@@ -8,7 +8,13 @@ from numba import prange, float64, int32, complex128
 spec = [('n', int32),
         ('ntau', int32),
         ('orb', int32),
-        ('particle_sign', int32)]
+        ('particle_sign', int32),
+        ('particle_type', int32),
+        ('GM', complex128[:,:,:]),
+        ('GI', complex128[:,:,:,:]),
+        ('GR', complex128[:,:,:,:]),
+        ('GL', complex128[:,:,:,:]),
+        ('Ghf', complex128[:,:,:])]
 @jitclass(spec)
 class Gmatrix:
     """
@@ -129,7 +135,7 @@ class Gmatrix:
         assert arr.shape == self.GL[0,0].shape
         self.GL[t1, t2] = arr
     def set_hf_loc(self, t, arr):
-        assert arr.shape == self.GL[0].shape
+        assert arr.shape == self.Ghf[0].shape
         self.Ghf[t] = arr
     
     
@@ -163,7 +169,12 @@ class Gmatrix:
 spec = [('n', int32),
         ('ntau', int32),
         ('orb', int32),
-        ('particle_sign', int32)]
+        ('particle_sign', int32),
+        ('particle_type', int32),
+        ('VM', complex128[:,:,:,:,:]),
+        ('VI', complex128[:,:,:,:,:,:]),
+        ('VR', complex128[:,:,:,:,:,:]),
+        ('VL', complex128[:,:,:,:,:,:]),]
 @jitclass(spec)
 class Vmatrix:
     """

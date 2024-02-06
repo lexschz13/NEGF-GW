@@ -4,6 +4,7 @@ from .vide import vide_startR, vide_start, vie_startR, vie_start
 from .contour_funcs import matrix_matrix, matrix_matrix2, matrix_tensor, tensor_tensor, copy_gmatrix
 from .convolution import conv_lmx_res, conv_les_res
 from .utils import gdist_real_time
+from .printing import float_string, exp_string
 
 
 
@@ -75,7 +76,8 @@ def boot_wles(W, vP, E, interpol):
 
 
 @njit
-def boot_loop_gw(G, S, vP, W, Q, E, H, v, mu, interpol, tol=1e-6):
+def boot_loop_gw(G, S, vP, W, Q, E, H, v, mu, interpol, h, tol=1e-6, max_iter=100000):
+    print("Starting bootstrapping loop")
     ntau, norb = G.get_mat().shape[:-1]
     particle_sign = (-1)**G.particle_type
     
@@ -86,6 +88,7 @@ def boot_loop_gw(G, S, vP, W, Q, E, H, v, mu, interpol, tol=1e-6):
         G.set_lmx_loc(0, rr, 1j * particle_sign * G.get_mat()[-1-rr])
     
     conv = 1e5
+    loop_iterations = 0
     while conv>tol:
         # Update bubbles
         for tt in range(interpol.k+1):
@@ -98,7 +101,7 @@ def boot_loop_gw(G, S, vP, W, Q, E, H, v, mu, interpol, tol=1e-6):
         
         # Boot W
         for tt in range(interpol.k+1):
-            conv_lmx_res(tt, vP, W, E, tensor_tensor)
+            conv_lmx_res(tt, vP, W, E, interpol, h, tensor_tensor)
             for rr in range(ntau):
                 E.add_to_lmx_loc(tensor_tensor(v, vP.get_lmx()[tt,rr]))
                 if tt==0:
@@ -107,7 +110,7 @@ def boot_loop_gw(G, S, vP, W, Q, E, H, v, mu, interpol, tol=1e-6):
                 E.set_ret_loc(tt, ss, tensor_tensor(vP.get_ret()[tt,ss], v))
                 if ss==tt:
                     W.set_ret_loc(ss, ss, E.get_ret()[ss,ss])
-                conv_les_res(tt, ss, vP, W, E, interpol, tensor_tensor)
+                conv_les_res(tt, ss, vP, W, E, interpol, h, tensor_tensor)
                 E.add_to_les_loc(tensor_tensor(v, vP.get_les()[tt,ss]))
                 if tt==0:
                     W.set_les_loc(0, ss, E.get_les()[0, ss])
@@ -128,9 +131,9 @@ def boot_loop_gw(G, S, vP, W, Q, E, H, v, mu, interpol, tol=1e-6):
         # Boot G
         lastG = copy_gmatrix(G)
         for tt in range(interpol.k+1):
-            conv_lmx_res(tt, S, G, Q, interpol, matrix_matrix)
+            conv_lmx_res(tt, S, G, Q, interpol, h, matrix_matrix)
             for ss in range(interpol.k+1):
-                conv_les_res(tt, ss, S, G, Q, interpol, matrix_matrix)
+                conv_les_res(tt, ss, S, G, Q, interpol, h, matrix_matrix)
         boot_gret(G, S, H, mu, interpol)
         boot_glmx(G, S, Q, H, mu, interpol)
         for tt in range(interpol.k+1):
@@ -139,3 +142,60 @@ def boot_loop_gw(G, S, vP, W, Q, E, H, v, mu, interpol, tol=1e-6):
         
         # Convergence
         conv = gdist_real_time(interpol.k, lastG, G)
+        loop_iterations += 1
+        
+        # Reched max iterations
+        assert loop_iterations < max_iter
+    
+    print("Convergence for boostrap region reached")
+    print("Norm "+exp_string(conv, 5)+"\n\n")
+
+
+@njit
+def boot_loop_gw0(G, S, Q, H, v, mu, interpol, h, tol=1e-6, max_iter=100000):
+    print("Starting bootstrapping loop")
+    ntau, norb = G.get_mat().shape[:-1]
+    particle_sign = (-1)**G.particle_type
+    
+    #G initial conditions
+    for tt in range(interpol.k+1):
+        G.set_ret_loc(tt, tt, -1j*np.eye(norb))
+    for rr in range(ntau):
+        G.set_lmx_loc(0, rr, 1j * particle_sign * G.get_mat()[-1-rr])
+    
+    conv = 1e5
+    loop_iterations = 0
+    while conv>tol:
+        
+        # Update S
+        for tt in range(interpol.k+1):
+            S.set_hf_loc(tt, matrix_tensor(G.get_les()[tt,tt], v - np.swapaxes(v, -1, -2)))
+            for ss in range(interpol.k+1):
+                S.set_ret_loc(tt, ss, matrix_tensor(G.get_ret()[tt,ss], tensor_tensor(v, tensor_tensor(matrix_matrix2(G.get_gtr()[tt,ss], G.get_les()[ss,tt]), v))) +
+                                      matrix_tensor(G.get_les()[tt,ss], tensor_tensor(v, tensor_tensor(matrix_matrix2(G.get_ret()[tt,ss], G.get_les()[ss,tt]), v))) +
+                                      matrix_tensor(G.get_les()[tt,ss], tensor_tensor(v, tensor_tensor(matrix_matrix2(G.get_les()[tt,ss], G.get_adv()[ss,tt]), v))) )
+                S.set_les_loc(tt, ss, matrix_tensor(G.get_les()[tt,ss], tensor_tensor(v, tensor_tensor(matrix_matrix2(G.get_les()[tt,ss], G.get_gtr()[ss,tt]), v))) )
+            for rr in range(ntau):
+                S.set_lmx_loc(tt, rr, matrix_tensor(G.get_lmx()[tt,rr], tensor_tensor(v, tensor_tensor(matrix_matrix2(G.get_lmx()[tt,rr], G.get_rmx()[rr,tt]), v))))
+        
+        # Boot G
+        lastG = copy_gmatrix(G)
+        for tt in range(interpol.k+1):
+            conv_lmx_res(tt, S, G, Q, interpol, h, matrix_matrix)
+            for ss in range(interpol.k+1):
+                conv_les_res(tt, ss, S, G, Q, interpol, h, matrix_matrix)
+        boot_gret(G, S, H, mu, interpol)
+        boot_glmx(G, S, Q, H, mu, interpol)
+        for tt in range(interpol.k+1):
+            G.set_les_loc(0, tt, G.get_rmx()[0,tt])
+        boot_gles(G, S, Q, H, mu, interpol)
+        
+        # Convergence
+        conv = gdist_real_time(interpol.k, lastG, G)
+        loop_iterations += 1
+        
+        # Reched max iterations
+        assert loop_iterations < max_iter
+    
+    print("Convergence for boostrap region reached")
+    print("Norm "+exp_string(conv, 5)+"\n\n")

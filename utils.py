@@ -1,11 +1,11 @@
 import numpy as np
-from numba import njit
+from numba import njit, int64, float64
 from .linalg import norm2_matrix
 
 
 
 @njit
-def xor_particles(a, b):
+def xor_particle(a, b):
     assert a==1 or a==0
     assert b==1 or b==0
     
@@ -37,3 +37,24 @@ def gdist_real_time(t, A, B):
     for kk in range(ntau):
         d += norm2_matrix(A.get_lmx()[t,kk] - B.get_les()[t,kk])
     return d
+
+
+@njit
+def factorial(n: int64) -> int64:
+    assert n > -1, "Factorial is not defined for negative numbers"
+    
+    if n == 0 or n == 1:
+        return 1
+    
+    else:
+        f = 1
+        for k in range(2,n+1):
+            f *= k
+        return f
+
+
+@njit
+def binomial(m: int64, n: int64) -> float64:
+    assert m >= n, "Binomial coefficient is not defined for m < n"
+    
+    return factorial(m) / factorial(m-n) / factorial(n)

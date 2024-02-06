@@ -1,5 +1,6 @@
 import numpy as np
 from numba import njit
+from .printing import exp_string
 
 
 
@@ -23,6 +24,8 @@ def wpped_matrix_inv(A):
                     auxiliar[i,:] = new_i_row
                     break
                 assert l<n-1, "Non invertible matrix"
+        if abs(auxiliar[i,i]) > 1e4 or abs(auxiliar[i,i]) < 1e-4: # Normalization avoids over/underflow
+            auxiliar[i,:] /= abs(auxiliar[i,i])
         for j in range(i+1,n):
             auxiliar[j,:] = auxiliar[j,:]*auxiliar[i,i] - auxiliar[i,:]*auxiliar[j,i]
     
@@ -36,6 +39,8 @@ def wpped_matrix_inv(A):
                     auxiliar[i,:] = new_i_row
                     break
                 assert l>0, "Non invertible matrix"
+        if abs(auxiliar[i,i]) > 1e4 or abs(auxiliar[i,i]) < 1e-4: # Normalization avoids over/underflow
+            auxiliar[i,:] /= abs(auxiliar[i,i])
         for j in range(i-1,-1,-1):
             auxiliar[j,:] = auxiliar[j,:]*auxiliar[i,i] - auxiliar[i,:]*auxiliar[j,i]
     
@@ -122,12 +127,15 @@ def wpped_eig(A, tol=1e-8):
                 for k in range(n):
                     Atf[i,k] += R[i,j] * Q[j,k]
         check_conv = True
+        conv_sum = 0.0
         for i in range(n):
             for j in range(i):
                 check_conv *= np.abs(Atf[i,j]) < tol
+                conv_sum += np.abs(Atf[i,j])
+        if num_iter%100==0:
+            print(num_iter//100, conv_sum)
         if check_conv:
             break
-    print(num_iter)
     
     evals = np.empty_like(A[0])
     evecs = np.empty_like(A)
@@ -162,17 +170,20 @@ def eig(arr):
         for k in range(arr.ndim-2):
             nmats *= arr.shape[k]
         arr = np.ascontiguousarray(arr.reshape((nmats,arr.shape[-2],arr.shape[-1])))
-        ret = np.empty_like(arr)
+        ret_vecs = np.empty_like(arr)
+        ret_vals = np.empty((nmats,arr.shape[-2]), dtype=np.complex128)
         for n in range(nmats):
-            ret[n,:,:] = wpped_eig(arr[n,:,:])
-        return np.ascontiguousarray(ret.reshape(sh))
+            valsn, vecsn = wpped_eig(arr[n,:,:])
+            ret_vals[n,:] = valsn
+            ret_vecs[n,:,:] = vecsn
+        return np.ascontiguousarray(ret_vals.reshape(sh[:-1])), np.ascontiguousarray(ret_vecs.reshape(sh))
 
 
 @njit
 def norm2_matrix(arr):
     assert arr.ndim==2, "Norm 2 for matrices"
     
-    arrsq = np.zeros((arr.shape[0],arr.shape[0]))
+    arrsq = np.zeros((arr.shape[0],arr.shape[0]), dtype=np.complex128)
     for ii in range(arr.shape[0]):
         for jj in range(arr.shape[0]):
             for kk in range(arr.shape[1]):

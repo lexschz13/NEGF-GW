@@ -1,15 +1,15 @@
 import numpy as np
-from scipy.special import factorial
 from numba.experimental import jitclass
-from numba import prange, float64, int32
-from .utilities import binomial
+from numba import prange, float64, int32, int8
+from .utils import factorial, binomial
+from .linalg import matrix_inv
+from .contour_funcs import matrix_matrix
 
 
 
 
 spec = [
-        ('k', int32),
-        ('h', float64),
+        ('k', int8),
         ('P', float64[:,:]),
         ('D', float64[:,:]),
         ('a', float64[:]),
@@ -31,17 +31,24 @@ class Interpolator:
         Time step of samples to interpolate. Default is 1.
     
     """
-    def __init__(self, k, h=1):
-        row = np.empty((k+1,k+1), dtype=np.int32); col = np.empty((k+1,k+1), dtype=np.int32)
+    def __init__(self, k):
+        row = np.empty((k+1,k+1), dtype=np.int8); col = np.empty((k+1,k+1), dtype=np.int8)
         for i in range(k+1):
             row[i,:] = i
             col[:,i] = i
         self.k = k
-        self.h = h
-        self.P = np.linalg.inv((row**col).astype(np.float64))
-        self.D = np.ascontiguousarray((col[:,1:] * row[:,1:]**(col[:,1:]-1)).astype(np.float64)) @ np.ascontiguousarray(self.P[1:,:])
+        self.P = matrix_inv((row**col).astype(np.float64))
         self.a = -self.P[1,:]
-        self.s = np.ascontiguousarray((row**(col+1)/(col+1))) @ np.ascontiguousarray(self.P)
+        self.D = np.zeros((k+1,k+1), dtype=np.float64)
+        self.s = np.zeros((k+1,k+1))
+        for i in range(k+1):
+            for j in range(k+1):
+                for l in range(k+1):
+                    self.s[i,j] += (row[i,l]*1.0)**(col[i,l]+1)/((col[i,l]+1)*1.0) * self.P[l,j]
+                    if l > 0:
+                        self.D[i,j] += col[i,l] * row[i,l]**col[i,l] * self.P[l,j]
+        #self.D = matrix_matrix(col[:,1:].astype(np.float64) * row[:,1:].astype(np.float64)**(col[:,1:].astype(np.float64)-1), self.P[1:,:])
+        #self.s = matrix_matrix(row.astype(np.float64)**(col.astype(np.float64)+1)/(col.astype(np.float64)+1), self.P)
         self.w = np.copy(self.s)
         
         self.R = np.zeros((self.k+1, self.k+1, self.k+1), dtype=np.float64)

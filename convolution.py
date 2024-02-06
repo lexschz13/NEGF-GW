@@ -5,7 +5,7 @@ from .utils import xor_particle
 
 
 @njit
-def conv_mat_extern(a, b, interpol, mat_prod, particle=0):
+def conv_mat_extern(a, b, interpol, h, mat_prod, particle=0):
     assert a.shape[0] == b.shape[0], "Arrays must be same imaginary time steps"
     
     N = a.shape[0]-1
@@ -30,11 +30,11 @@ def conv_mat_extern(a, b, interpol, mat_prod, particle=0):
             for kk in range(N-mm+1):
                 c2[mm] += (-1)**particle * w[N-mm,kk] * mat_prod(a[mm+kk], b[N-kk])
     
-    return interpol.h * (c1 + c2)
+    return h * (c1 + c2)
 
 
 @njit
-def conv_mat(a, b, c, interpol, mat_prod, particle=0):
+def conv_mat(a, b, c, interpol, h, mat_prod, particle=0):
     assert a.get_mat().shape[0] == b.get_mat().shape[0], "Arrays must be same imaginary time steps"
     
     particle = xor_particle(a.particle_type, b.particle_type)
@@ -62,11 +62,11 @@ def conv_mat(a, b, c, interpol, mat_prod, particle=0):
             for kk in range(N-mm+1):
                 c2 += (-1)**particle * w[N-mm,kk] * mat_prod(a.get_mat()[mm+kk], b.get_mat()[N-kk])
                 
-        c.set_mat_loc(mm, interpol.h * (c1 + c2))
+        c.set_mat_loc(mm, h * (c1 + c2))
 
 
 @njit
-def conv_lmx_res(t, a, b, c, interpol, mat_prod):
+def conv_lmx_res(t, a, b, c, interpol, h, mat_prod):
     assert a.get_lmx().shape[1] == b.get_mat().shape[0], "Arrays must be same imaginary time steps"
     
     particle = xor_particle(a.particle_type, b.particle_type)
@@ -94,11 +94,11 @@ def conv_lmx_res(t, a, b, c, interpol, mat_prod):
             for ll in range(N-mm+1):
                 c3 += w[N-mm,ll] * mat_prod(a.get_lmx()[t,mm+ll], b.get_mat()[ll])
 
-        c.set_lmx_loc(t, mm, interpol.h * (c2 + c3))
+        c.set_lmx_loc(t, mm, h * (c2 + c3))
 
 
 @njit
-def conv_les_res(t, tp_max, a, b, c, interpol, mat_prod):
+def conv_les_res(t, tp_max, a, b, c, interpol, h, mat_prod):
     assert a.get_les().shape[1] == b.get_adv().shape[0], "Arrays must be same time steps"
     assert a.get_lmx().shape[1] == b.get_rmx().shape[0], "Arrays must be same imaginary time steps"
     
@@ -116,4 +116,4 @@ def conv_les_res(t, tp_max, a, b, c, interpol, mat_prod):
         for kk in range(N+1):
             cij += w[N,kk] * mat_prod(a.get_lmx()[t,kk], b.get_rmx()[jj,tp_max])
     
-    c.set_les_loc(t, tp_max, interpol.h * (cla - 1j*cij))
+    c.set_les_loc(t, tp_max, h * (cla - 1j*cij))

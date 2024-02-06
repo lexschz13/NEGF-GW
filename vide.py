@@ -1,7 +1,8 @@
 import numpy as np
 from numba import njit, prange, int64, float64, config
 from .interpolator import Interpolator
-from .utilities import low_to_zero, arrlow_to_zero
+from .contour_funcs import matrix_matrix
+from .linalg import matrix_inv
 # config.NUMBA_FASTMATH = False
 
 
@@ -97,8 +98,8 @@ def vide_startR(interpol: Interpolator, p: np.ndarray, q: np.ndarray, K: np.ndar
     Mcut = M[sz*(init_ts+1):,sz*(init_ts+1):]
     Minit = np.zeros_like(q[init_ts+1:].flatten())
     for ii in range(init_ts+1):
-        Minit += np.ascontiguousarray(M[sz*(init_ts+1):,sz*ii:sz*(ii+1)]) @ np.ascontiguousarray(y0[ii].flatten())
-    yboot = np.linalg.inv(Mcut) @ (q[init_ts+1:].flatten()-Minit)
+        Minit += matrix_matrix(M[sz*(init_ts+1):,sz*ii:sz*(ii+1)], y0[ii].flatten())
+    yboot = matrix_matrix(matrix_inv(Mcut), q[init_ts+1:].flatten()-Minit)
     return yboot.reshape((q.shape[0]-init_ts-1,)+y0[0].shape)
 
 
@@ -189,8 +190,8 @@ def vide_start(interpol: Interpolator, p: np.ndarray, q: np.ndarray, K: np.ndarr
     """
     
     Mcut = M[y0.size:,y0.size:]
-    Minit = np.ascontiguousarray(M[y0.size:,:y0.size]) @ np.ascontiguousarray(y0.flatten())
-    yboot = np.linalg.inv(Mcut) @ (q[1:].flatten()-Minit)
+    Minit = matrix_matrix(M[y0.size:,:y0.size], y0.flatten())
+    yboot = matrix_matrix(matrix_inv(Mcut), q[1:].flatten()-Minit)
     return yboot.reshape((q.shape[0]-1,)+y0.shape)
 
 
@@ -290,8 +291,8 @@ def vie_startR(interpol, q, K, y0, conjugate=False):
     Mcut = M[sz*(init_ts+1):,sz*(init_ts+1):]
     Minit = np.zeros_like(q[init_ts+1:].flatten())
     for ii in range(init_ts+1):
-        Minit += np.ascontiguousarray(M[sz*(init_ts+1):,sz*ii:sz*(ii+1)]) @ np.ascontiguousarray(y0[ii].flatten())
-    yboot = np.linalg.inv(Mcut) @ (q[init_ts+1:].flatten()-Minit)
+        Minit += matrix_matrix(M[sz*(init_ts+1):,sz*ii:sz*(ii+1)], y0[ii].flatten())
+    yboot = matrix_matrix(matrix_inv(Mcut), q[init_ts+1:].flatten()-Minit)
     return yboot.reshape((q.shape[0]-init_ts-1,)+y0[0].shape)
 
 
@@ -385,9 +386,9 @@ def vide_step(interpol: Interpolator, p: np.ndarray, q: np.ndarray, K: np.ndarra
                             M[idxMq,idxMy] += interpol.h * w[ll] * K[ll,ii,kk] * (nn==jj)
     """
     
-    Mcut = np.ascontiguousarray(M[:,:-y.shape[1]*y.shape[2]]) @ y[:n].flatten()
+    Mcut = matrix_matrix(M[:,:-y.shape[1]*y.shape[2]], y[:n].flatten())
     Mfinal = M[:,-y.shape[1]*y.shape[2]:]
-    return (np.linalg.inv(Mfinal) @ (q.flatten()-Mcut)).reshape(q.shape)
+    return matrix_matrix(matrix_inv(Mfinal), (q.flatten()-Mcut).reshape(q.shape))
 
 
 @njit
@@ -482,8 +483,8 @@ def vie_start(interpol, q, K, y0, conjugate=False):
     """
     
     Mcut = M[y0.size:,y0.size:]
-    Minit = np.ascontiguousarray(M[y0.size:,:y0.size]) @ np.ascontiguousarray(y0.flatten())
-    yboot = np.linalg.inv(Mcut) @ (q[1:].flatten()-Minit)
+    Minit = matrix_matrix(M[y0.size:,:y0.size], y0.flatten())
+    yboot = matrix_matrix(matrix_inv(Mcut), q[1:].flatten()-Minit)
     return yboot.reshape((q.shape[0]-1,)+y0.shape)
 
 
@@ -579,6 +580,6 @@ def vie_step(interpol, q, K, y, conjugate=False):
                                             M[idxMq,idxMy] += interpol.h * w[tt] * K[tt,ii,pp,kk,mm] * (jj==nn) * (ll==qq)
     """
     
-    Mcut = np.ascontiguousarray(M[:,:-y.shape[1]*y.shape[2]*y.shape[3]*y.shape[4]]) @ y[:n].flatten()
+    Mcut = matrix_matrix(M[:,:-y.shape[1]*y.shape[2]*y.shape[3]*y.shape[4]], y[:n].flatten())
     Mfinal = M[:,-y.shape[1]*y.shape[2]*y.shape[3]*y.shape[4]:]
-    return (np.linalg.inv(Mfinal) @ (q.flatten()-Mcut)).reshape(q.shape)
+    return matrix_matrix(matrix_inv(Mfinal), (q.flatten()-Mcut).reshape(q.shape))
