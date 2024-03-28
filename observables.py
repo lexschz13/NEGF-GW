@@ -44,12 +44,10 @@ def local_energy(tt, mu, Hloc, Gloc):
 def interaction_energy(tt, Gloc, S, interp, h):
     assert Gloc.get_mat().shape[-1] == S.get_mat().shape[-1]
     
-    p_sign = Gloc.particle_sign
-
     Eint = 0.0j
-    Eint += 1j*p_sign * np.trace(conv_les1(tt, tt, Gloc, S, interp, h, matrix_matrix))
-    Eint += 1j*p_sign * np.trace(conv_les2(tt, tt, Gloc, S, interp, h, matrix_matrix))
-    Eint += 1j*p_sign * np.trace(conv_les3(tt, tt, Gloc, S, interp, h, matrix_matrix))
+    Eint -= 1j * np.trace(conv_les1(tt, tt, Gloc, S, interp, h, matrix_matrix))
+    Eint -= 1j * np.trace(conv_les2(tt, tt, Gloc, S, interp, h, matrix_matrix))
+    Eint -= 1j * np.trace(conv_les3(tt, tt, Gloc, S, interp, h, matrix_matrix))
     return Eint
 
 
