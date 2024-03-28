@@ -1,14 +1,13 @@
 import numpy as np
 from numba import njit, prange, int64, float64, config
 from .interpolator import Interpolator
-from .contour_funcs import matrix_matrix
-from .linalg import matrix_inv
+from .linalg import matrix_vector
 # config.NUMBA_FASTMATH = False
 
 
 
 @njit
-def vide_startR(interpol: Interpolator, p: np.ndarray, q: np.ndarray, K: np.ndarray, y0: np.ndarray, conjugate=False) -> np.ndarray:
+def vide_startR(interpol: Interpolator, h: float64, p: np.ndarray, q: np.ndarray, K: np.ndarray, y0: np.ndarray, conjugate=False) -> np.ndarray:
     """
     Computes the initial bootstraping of a function described by a Volterra integro-differential equation for retarded component.
     
@@ -55,9 +54,9 @@ def vide_startR(interpol: Interpolator, p: np.ndarray, q: np.ndarray, K: np.ndar
                         for nn in range(y0.shape[-1]):
                             idxMq = jj + q.shape[2]*ii + q.shape[2]*q.shape[1]*mm
                             idxMy = nn + y0.shape[-1]*ii + y0.shape[-1]*y0.shape[-2]*ll
-                            M[idxMq,idxMy] += interpol.D[mm,ll] / interpol.h * (nn==jj)
+                            M[idxMq,idxMy] += interpol.D[mm,ll] / h * (nn==jj)
                             M[idxMq,idxMy] += (mm==ll) * p[mm,nn,jj]
-                            M[idxMq,idxMy] += interpol.h * interpol.I[init_ts,mm,ll] * K[ll,mm,nn,jj]
+                            M[idxMq,idxMy] += h * interpol.I[init_ts,mm,ll] * K[ll,mm,nn,jj]
         
     else:
         assert y0.shape[-2]==p.shape[2], "Non-compatible weight-init shape"
@@ -73,9 +72,9 @@ def vide_startR(interpol: Interpolator, p: np.ndarray, q: np.ndarray, K: np.ndar
                         for kk in range(y0.shape[-2]):
                             idxMq = jj + q.shape[2]*ii + q.shape[2]*q.shape[1]*mm
                             idxMy = jj + y0.shape[-1]*kk + y0.shape[-1]*y0.shape[-2]*ll
-                            M[idxMq,idxMy] += interpol.D[mm,ll] / interpol.h * (ii==kk)
+                            M[idxMq,idxMy] += interpol.D[mm,ll] / h * (ii==kk)
                             M[idxMq,idxMy] += (mm==ll) * p[mm,ii,kk]
-                            M[idxMq,idxMy] += interpol.h * interpol.I[init_ts,mm,ll] * K[mm,ll,ii,kk]
+                            M[idxMq,idxMy] += h * interpol.I[init_ts,mm,ll] * K[mm,ll,ii,kk]
     
     """
     for mm in range(q.shape[0]):
@@ -98,13 +97,13 @@ def vide_startR(interpol: Interpolator, p: np.ndarray, q: np.ndarray, K: np.ndar
     Mcut = M[sz*(init_ts+1):,sz*(init_ts+1):]
     Minit = np.zeros_like(q[init_ts+1:].flatten())
     for ii in range(init_ts+1):
-        Minit += matrix_matrix(M[sz*(init_ts+1):,sz*ii:sz*(ii+1)], y0[ii].flatten())
-    yboot = matrix_matrix(matrix_inv(Mcut), q[init_ts+1:].flatten()-Minit)
+        Minit += matrix_vector(M[sz*(init_ts+1):,sz*ii:sz*(ii+1)], y0[ii].flatten())
+    yboot = matrix_vector(np.linalg.inv(Mcut), q[init_ts+1:].flatten()-Minit)
     return yboot.reshape((q.shape[0]-init_ts-1,)+y0[0].shape)
 
 
 @njit
-def vide_start(interpol: Interpolator, p: np.ndarray, q: np.ndarray, K: np.ndarray, y0: np.ndarray, conjugate=False) -> np.ndarray:
+def vide_start(interpol: Interpolator, h: float64, p: np.ndarray, q: np.ndarray, K: np.ndarray, y0: np.ndarray, conjugate=False) -> np.ndarray:
     """
     Computes the initial bootstraping of a function described by a Volterra integro-differential equation.
     
@@ -149,9 +148,9 @@ def vide_start(interpol: Interpolator, p: np.ndarray, q: np.ndarray, K: np.ndarr
                         for nn in range(y0.shape[1]):
                             idxMq = jj + q.shape[2]*ii + q.shape[2]*q.shape[1]*mm
                             idxMy = nn + y0.shape[1]*ii + y0.shape[1]*y0.shape[0]*ll
-                            M[idxMq,idxMy] += interpol.D[mm,ll] / interpol.h * (nn==jj)
+                            M[idxMq,idxMy] += interpol.D[mm,ll] / h * (nn==jj)
                             M[idxMq,idxMy] += (mm==ll) * p[mm,nn,jj]
-                            M[idxMq,idxMy] += interpol.h * interpol.s[mm,ll] * K[ll,mm,nn,jj]
+                            M[idxMq,idxMy] += h * interpol.s[mm,ll] * K[ll,mm,nn,jj]
         
     else:
         assert y0.shape[0]==p.shape[2], "Non-compatible weight-init shape"
@@ -167,9 +166,9 @@ def vide_start(interpol: Interpolator, p: np.ndarray, q: np.ndarray, K: np.ndarr
                         for kk in range(y0.shape[0]):
                             idxMq = jj + q.shape[2]*ii + q.shape[2]*q.shape[1]*mm
                             idxMy = jj + y0.shape[1]*kk + y0.shape[1]*y0.shape[0]*ll
-                            M[idxMq,idxMy] += interpol.D[mm,ll] / interpol.h * (ii==kk)
+                            M[idxMq,idxMy] += interpol.D[mm,ll] / h * (ii==kk)
                             M[idxMq,idxMy] += (mm==ll) * p[mm,ii,kk]
-                            M[idxMq,idxMy] += interpol.h * interpol.s[mm,ll] * K[mm,ll,ii,kk]
+                            M[idxMq,idxMy] += h * interpol.s[mm,ll] * K[mm,ll,ii,kk]
     
     """
     for mm in range(q.shape[0]):
@@ -190,8 +189,8 @@ def vide_start(interpol: Interpolator, p: np.ndarray, q: np.ndarray, K: np.ndarr
     """
     
     Mcut = M[y0.size:,y0.size:]
-    Minit = matrix_matrix(M[y0.size:,:y0.size], y0.flatten())
-    yboot = matrix_matrix(matrix_inv(Mcut), q[1:].flatten()-Minit)
+    Minit = matrix_vector(M[y0.size:,:y0.size], y0.flatten())
+    yboot = matrix_vector(np.linalg.inv(Mcut), q[1:].flatten()-Minit)
     return yboot.reshape((q.shape[0]-1,)+y0.shape)
 
 
@@ -291,13 +290,13 @@ def vie_startR(interpol, q, K, y0, conjugate=False):
     Mcut = M[sz*(init_ts+1):,sz*(init_ts+1):]
     Minit = np.zeros_like(q[init_ts+1:].flatten())
     for ii in range(init_ts+1):
-        Minit += matrix_matrix(M[sz*(init_ts+1):,sz*ii:sz*(ii+1)], y0[ii].flatten())
-    yboot = matrix_matrix(matrix_inv(Mcut), q[init_ts+1:].flatten()-Minit)
+        Minit += matrix_vector(M[sz*(init_ts+1):,sz*ii:sz*(ii+1)], y0[ii].flatten())
+    yboot = matrix_vector(np.linalg.inv(Mcut), q[init_ts+1:].flatten()-Minit)
     return yboot.reshape((q.shape[0]-init_ts-1,)+y0[0].shape)
 
 
 @njit
-def vide_step(interpol: Interpolator, p: np.ndarray, q: np.ndarray, K: np.ndarray, y: np.ndarray, conjugate=False) -> np.ndarray:
+def vide_step(interpol: Interpolator, h: float64, p: np.ndarray, q: np.ndarray, K: np.ndarray, y: np.ndarray, conjugate=False) -> np.ndarray:
     """
     Computes the following time-step of a function described by a Volterra integro-differential equation.
     
@@ -326,9 +325,11 @@ def vide_step(interpol: Interpolator, p: np.ndarray, q: np.ndarray, K: np.ndarra
     n = y.shape[0] #Current time-step
     w = interpol.gregory_weights(n)[n,:] #Only current time-step, one-time-label
     
-    p = p[n] #Only curent time-step, zero-time-label
+    if p.ndim==3:
+        p = p[n] #Only curent time-step, zero-time-label
     K = K[:n+1,n] if conjugate else K[n,:n+1] #Only current time-step, one-time-label
-    q = q[n] #Only current time-step, zero-time label
+    if q.ndim==3:
+        q = q[n] #Only current time-step, zero-time label
     
     assert p.ndim==2 and q.ndim==2 and K.ndim==3 and y.ndim==3, "Non-compatible dimensions"
     M = np.zeros((q.size,y.size+y.shape[1]*y.shape[2]), dtype=np.complex128)
@@ -346,9 +347,9 @@ def vide_step(interpol: Interpolator, p: np.ndarray, q: np.ndarray, K: np.ndarra
                         idxMq = jj + q.shape[1]*ii
                         idxMy = nn + y.shape[2]*ii + y.shape[2]*y.shape[1]*ll
                         if ll > n - (interpol.k+1):
-                            M[idxMq,idxMy] += interpol.a[n-ll] / interpol.h * (jj==nn)
+                            M[idxMq,idxMy] += interpol.a[n-ll] / h * (jj==nn)
                         M[idxMq,idxMy] += (n==ll) * p[nn,jj]
-                        M[idxMq,idxMy] += interpol.h * w[ll] * K[ll,nn,jj]
+                        M[idxMq,idxMy] += h * w[ll] * K[ll,nn,jj]
         
     else:
         assert y.shape[1]==p.shape[1], "Non-compatible weight-func shape"
@@ -364,9 +365,9 @@ def vide_step(interpol: Interpolator, p: np.ndarray, q: np.ndarray, K: np.ndarra
                         idxMq = jj + q.shape[1]*ii
                         idxMy = jj + y.shape[2]*kk + y.shape[2]*y.shape[1]*ll
                         if ll > n - (interpol.k+1):
-                            M[idxMq,idxMy] += interpol.a[n-ll] / interpol.h * (ii==kk)
+                            M[idxMq,idxMy] += interpol.a[n-ll] / h * (ii==kk)
                         M[idxMq,idxMy] += (n==ll) * p[ii,kk]
-                        M[idxMq,idxMy] += interpol.h * w[ll] * K[ll,ii,kk]
+                        M[idxMq,idxMy] += h * w[ll] * K[ll,ii,kk]
     
     """
     for ll in range(n+1):
@@ -386,9 +387,9 @@ def vide_step(interpol: Interpolator, p: np.ndarray, q: np.ndarray, K: np.ndarra
                             M[idxMq,idxMy] += interpol.h * w[ll] * K[ll,ii,kk] * (nn==jj)
     """
     
-    Mcut = matrix_matrix(M[:,:-y.shape[1]*y.shape[2]], y[:n].flatten())
+    Mcut = matrix_vector(M[:,:-y.shape[1]*y.shape[2]], y[:n].flatten())
     Mfinal = M[:,-y.shape[1]*y.shape[2]:]
-    return matrix_matrix(matrix_inv(Mfinal), (q.flatten()-Mcut).reshape(q.shape))
+    return matrix_vector(np.linalg.inv(Mfinal), (q.flatten()-Mcut).reshape(q.shape))
 
 
 @njit
@@ -483,8 +484,8 @@ def vie_start(interpol, q, K, y0, conjugate=False):
     """
     
     Mcut = M[y0.size:,y0.size:]
-    Minit = matrix_matrix(M[y0.size:,:y0.size], y0.flatten())
-    yboot = matrix_matrix(matrix_inv(Mcut), q[1:].flatten()-Minit)
+    Minit = matrix_vector(M[y0.size:,:y0.size], y0.flatten())
+    yboot = matrix_vector(np.linalg.inv(Mcut), q[1:].flatten()-Minit)
     return yboot.reshape((q.shape[0]-1,)+y0.shape)
 
 
@@ -517,7 +518,8 @@ def vie_step(interpol, q, K, y, conjugate=False):
     w = interpol.gregory_weights(n)[n,:] #Only current time-step, one-time-label
     
     K = K[:n+1,n] if conjugate else K[n,:n+1] #Only current time-step, one-time-label
-    q = q[n] #Only current time-step, zero-time label
+    if q.ndim==5:
+        q = q[n] #Only current time-step, zero-time label
     
     assert q.ndim==4 and K.ndim==5 and y.ndim==5, "Non-compatible dimensions"
     M = np.zeros((q.size,y.size+y.shape[1]*y.shape[2]*y.shape[3]*y.shape[4]), dtype=np.complex128)
@@ -580,6 +582,6 @@ def vie_step(interpol, q, K, y, conjugate=False):
                                             M[idxMq,idxMy] += interpol.h * w[tt] * K[tt,ii,pp,kk,mm] * (jj==nn) * (ll==qq)
     """
     
-    Mcut = matrix_matrix(M[:,:-y.shape[1]*y.shape[2]*y.shape[3]*y.shape[4]], y[:n].flatten())
+    Mcut = matrix_vector(M[:,:-y.shape[1]*y.shape[2]*y.shape[3]*y.shape[4]], y[:n].flatten())
     Mfinal = M[:,-y.shape[1]*y.shape[2]*y.shape[3]*y.shape[4]:]
-    return matrix_matrix(matrix_inv(Mfinal), (q.flatten()-Mcut).reshape(q.shape))
+    return matrix_vector(np.linalg.inv(Mfinal), (q.flatten()-Mcut).reshape(q.shape))

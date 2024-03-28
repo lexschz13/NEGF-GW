@@ -6,13 +6,30 @@ from numba import njit
 def float_string(x, decimals=1):
     assert decimals > 0
     
-    s = str(int(x)) + '.'
-    for i in range(decimals):
+    integer_part = int(x)
+    decimal_digits = np.empty((decimals,), dtype=np.int8)
+    for i in range(decimals+1):
         x *= 10
-        if i == decimals-1:
-            s += str(round(x % 10))
+        if i < decimals:
+            decimal_digits[i] = int(abs(x) % 10)
         else:
-            s += str(int(x % 10))
+            if int(abs(x) % 10) >= 5:
+                decimal_digits[-1] += 1
+    
+    for j in range(decimals-1,0,-1):
+        if decimal_digits[j] == 10:
+            decimal_digits[j-1] += 1
+            decimal_digits[j] = 0
+        else:
+            break
+    
+    if decimal_digits[0] == 10:
+        integer_part += 1
+        decimal_digits[0] = 0
+    
+    s = str(integer_part) + '.'
+    for k in range(decimals):
+        s += str(decimal_digits[k])
     return s
 
 
@@ -20,15 +37,31 @@ def float_string(x, decimals=1):
 def exp_string(x, decimals=1):
     assert decimals > 0
     
-    exp = int(np.log10(x))
+    if x==0:
+        s = "0."
+        for k in range(decimals):
+            s += "0"
+        s += "e+000"
+        return s
+    
+    exp = int(np.log10(abs(x)))
     if exp >= 0:
-        x /= 10**exp
+        while int(np.log10(abs(x))) != 0:
+            x /= 10
     else:
-        x *= 10**(-exp+1)
+        while int(np.log10(abs(x))) != 0:
+            x *= 10
+        x *= 10
     s = float_string(x, decimals)
-    if exp >= 0:
-        s += "e+" + str(exp)
+    if abs(exp)//10 == 0:
+        str_exp = "00"
+    elif abs(exp)//10 != 0 and abs(exp)//100==0:
+        str_exp = "0"
     else:
-        s += "e"  + str(exp-1)
+        str_exp = ""
+    if exp >= 0:
+        s += "e+" + str_exp + str(exp)
+    else:
+        s += "e-" + str_exp + str(abs(exp-1))
     
     return s

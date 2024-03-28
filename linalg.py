@@ -5,178 +5,77 @@ from .printing import exp_string
 
 
 @njit
-def wpped_matrix_inv(A):
-    assert A.ndim==2, "Inversion is for 2D arrays"
-    assert A.shape[0] == A.shape[1], "Only squared matrices have inverse"
+def matrix_vector(M, v):
+    assert M.shape[1] == v.shape[0], "Shape does not coincide"
     
-    n = A.shape[0]
-    auxiliar = np.empty((n,2*n), dtype=A.dtype)
-    auxiliar[:,:n] = A
-    auxiliar[:,n:] = np.eye(n, dtype=A.dtype)
+    c = np.zeros_like(v)
     
-    # Gauss elimination
-    for i in range(n-1):
-        if auxiliar[i,i] == 0:
-            for l in range(i+1,n):
-                if auxiliar[l,i] != 0:
-                    new_i_row = np.copy(auxiliar[l,:])
-                    auxiliar[l,:] = auxiliar[i,:]
-                    auxiliar[i,:] = new_i_row
-                    break
-                assert l<n-1, "Non invertible matrix"
-        if abs(auxiliar[i,i]) > 1e4 or abs(auxiliar[i,i]) < 1e-4: # Normalization avoids over/underflow
-            auxiliar[i,:] /= abs(auxiliar[i,i])
-        for j in range(i+1,n):
-            auxiliar[j,:] = auxiliar[j,:]*auxiliar[i,i] - auxiliar[i,:]*auxiliar[j,i]
+    for ii in range(M.shape[0]):
+        for jj in range(v.shape[0]):
+            c[jj] += M[ii,jj] * v[jj]
     
-    # Jordan elimination
-    for i in range(n-1,0,-1):
-        if auxiliar[i,i] == 0:
-            for l in range(i-1,-1,-1):
-                if auxiliar[l,i] != 0:
-                    new_i_row = auxiliar[l,:]
-                    auxiliar[l,:] = auxiliar[i,:]
-                    auxiliar[i,:] = new_i_row
-                    break
-                assert l>0, "Non invertible matrix"
-        if abs(auxiliar[i,i]) > 1e4 or abs(auxiliar[i,i]) < 1e-4: # Normalization avoids over/underflow
-            auxiliar[i,:] /= abs(auxiliar[i,i])
-        for j in range(i-1,-1,-1):
-            auxiliar[j,:] = auxiliar[j,:]*auxiliar[i,i] - auxiliar[i,:]*auxiliar[j,i]
-    
-    # Normalization
-    for i in range(n):
-        assert auxiliar[i,i] != 0, "Non invertible matrix"
-        auxiliar[i,:] /= auxiliar[i,i]
-    return auxiliar[:,n:]
-
+    return c
 
 
 @njit
-def matrix_inv(arr):
-    assert arr.ndim>1, "Inversion is for 2D arrays"
+def matrix_matrix(a, b):
+    assert a.shape[1] == b.shape[0], "Shape does not coincide"
     
-    if arr.ndim == 2:
-        return wpped_matrix_inv(arr)
+    c = np.zeros((a.shape[0],b.shape[1]), dtype=np.complex128)
     
-    else:
-        sh = arr.shape
-        nmats = 1
-        for k in range(arr.ndim-2):
-            nmats *= arr.shape[k]
-        arr = np.ascontiguousarray(arr.reshape((nmats,arr.shape[-2],arr.shape[-1])))
-        ret = np.empty_like(arr)
-        for n in range(nmats):
-            ret[n,:,:] = wpped_matrix_inv(arr[n,:,:])
-        return np.ascontiguousarray(ret.reshape(sh))
+    for ii in range(a.shape[0]):
+        for jj in range(a.shape[1]):
+            for kk in range(b.shape[1]):
+                c[ii,kk] += a[ii,jj] * b[jj,kk]
+    
+    return c
 
 
 @njit
-def inner(v, u):
-    assert v.ndim==1 and u.ndim==1, "1D arrays are vectors"
-    assert v.size == u.size, "Inner product only for same size vectors"
+def matrix_matrix2(a, b):
+    c = np.zeros((a.shape[0],b.shape[0],b.shape[1],a.shape[1]), dtype=np.complex128)
     
-    if v.dtype is np.dtype(np.complex128) or u.dtype is np.dtype(np.complex128):
-        w = 0j
-        for i in range(v.size):
-            w += v[i].conjugate() * u[i]
-    else:
-        w = 0.
-        for i in range(v.size):
-            w += v[i] * u[i]
-    return w
-
+    for mm in range(a.shape[0]):
+        for nn in range(b.shape[0]):
+            for kk in range(b.shape[1]):
+                for ll in range(a.shape[1]):
+                    c[mm,nn,kk,ll] += a[mm,ll] * b[nn,kk]
+    
+    return c
 
 
 @njit
-def QRdecomp(A):
-    assert A.ndim==2 and A.shape[0]==A.shape[1], "QR decomposition only admits 2D squared matrices"
+def matrix_tensor(a, b):
+    assert a.shape[0] == b.shape[2], "Shape does not coincide"
+    assert a.shape[1] == b.shape[1], "Shape does not coincide"
     
-    U = np.empty_like(A)
-    E = np.empty_like(A)
+    c = np.zeros((b.shape[0], b.shape[3]), dtype=np.complex128)
     
-    n = A.shape[0]
-    for i in range(n):
-        U[:,i] = A[:,i]
-        for j in range(i):
-            U[:,i] -= inner(U[:,j], A[:,i]) / inner(U[:,j], U[:,j]) * U[:,j]
-        E[:,i] = U[:,i] / np.sqrt(inner(U[:,i], U[:,i]))
+    for mm in range(b.shape[0]):
+        for nn in range(b.shape[3]):
+            for ll in range(a.shape[0]):
+                for kk in range(a.shape[1]):
+                    c[mm,nn] += a[ll,kk] * b[mm,kk,ll,nn]
     
-    R = np.zeros_like(A)
-    for i in range(n):
-        for j in range(i,n):
-            R[i,j] = inner(E[:,i], A[:,j])
-    
-    return E, R
+    return c
 
 
 @njit
-def wpped_eig(A, tol=1e-8):
-    assert A.ndim==2, "Eigen is for 2D arrays"
-    assert A.shape[0] == A.shape[1], "Only squared matrices have eigen"
+def tensor_tensor(a, b):
+    assert a.shape[1] == b.shape[2], "Shape does not coincide"
+    assert a.shape[3] == b.shape[0], "Shape does not coincide"
     
-    Atf = np.copy(A)
-    n = A.shape[0]
-    num_iter = 0
-    while True:
-        num_iter += 1
-        Q, R = QRdecomp(Atf)
-        Atf = np.zeros_like(Atf)
-        for i in range(n):
-            for j in range(n):
-                for k in range(n):
-                    Atf[i,k] += R[i,j] * Q[j,k]
-        check_conv = True
-        conv_sum = 0.0
-        for i in range(n):
-            for j in range(i):
-                check_conv *= np.abs(Atf[i,j]) < tol
-                conv_sum += np.abs(Atf[i,j])
-        if num_iter%100==0:
-            print(num_iter//100, conv_sum)
-        if check_conv:
-            break
+    c = np.zeros((a.shape[0],b.shape[1],a.shape[2],b.shape[3]), dtype=np.complex128)
     
-    evals = np.empty_like(A[0])
-    evecs = np.empty_like(A)
+    for mm in range(a.shape[0]):
+        for aa in range(a.shape[1]):
+            for ll in range(a.shape[2]):
+                for ee in range(a.shape[3]):
+                    for xx in range(b.shape[1]):
+                        for bb in range(b.shape[3]):
+                            c[mm,xx,ll,bb] += a[mm,aa,ll,ee] * b[ee,xx,aa,bb]
     
-    for i in range(n):
-        evals[i] = Atf[i,i]
-    for i in range(n):
-        rdvec = np.random.random((n,)) + 1j*np.random.random((n,))
-        v = rdvec / np.sqrt(inner(rdvec,rdvec))
-        for j in range(n):
-            if j != i:
-                new_v = np.zeros_like(v)
-                for k in range(n):
-                    for l in range(n):
-                        new_v[k] += (A[k,l] - evals[j]*(k==l)) * v[l]
-                v = new_v / np.sqrt(inner(new_v,new_v))
-        evecs[:,i] = np.copy(v)
-    
-    return evals, evecs
-
-
-@njit
-def eig(arr):
-    assert arr.ndim>1, "Eigen is for 2D arrays"
-    
-    if arr.ndim == 2:
-        return wpped_eig(arr)
-    
-    else:
-        sh = arr.shape
-        nmats = 1
-        for k in range(arr.ndim-2):
-            nmats *= arr.shape[k]
-        arr = np.ascontiguousarray(arr.reshape((nmats,arr.shape[-2],arr.shape[-1])))
-        ret_vecs = np.empty_like(arr)
-        ret_vals = np.empty((nmats,arr.shape[-2]), dtype=np.complex128)
-        for n in range(nmats):
-            valsn, vecsn = wpped_eig(arr[n,:,:])
-            ret_vals[n,:] = valsn
-            ret_vecs[n,:,:] = vecsn
-        return np.ascontiguousarray(ret_vals.reshape(sh[:-1])), np.ascontiguousarray(ret_vecs.reshape(sh))
+    return c
 
 
 @njit
@@ -189,5 +88,8 @@ def norm2_matrix(arr):
             for kk in range(arr.shape[1]):
                 arrsq[ii,jj] += arr[ii,kk] * arr[jj,kk].conjugate()
     
-    w,_ = eig(arrsq)
-    return np.sqrt(w.real.max())
+    if np.all(arrsq==np.zeros_like(arrsq)):
+        return 0.0
+    else:
+        w,_ = np.linalg.eig(arrsq)
+        return np.sqrt(w.real.max())

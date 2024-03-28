@@ -35,7 +35,7 @@ def gdist_real_time(t, A, B):
         d += norm2_matrix(A.get_ret()[t,jj] - B.get_ret()[t,jj])
         d += norm2_matrix(A.get_les()[t,jj] - B.get_les()[t,jj])
     for kk in range(ntau):
-        d += norm2_matrix(A.get_lmx()[t,kk] - B.get_les()[t,kk])
+        d += norm2_matrix(A.get_lmx()[t,kk] - B.get_lmx()[t,kk])
     return d
 
 

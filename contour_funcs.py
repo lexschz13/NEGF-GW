@@ -72,6 +72,9 @@ class Gmatrix:
             Gcomp[n:] = self.GR[n:]
             if n < self.GR.shape[0]-1:
                 Gcomp[:,n+1] = -np.swapaxes(self.GR[:,n+1:].conjugate(), -1, -2)
+        return Gcomp
+    def get_adv_comp(self):
+        return -self.get_ret_comp()
     
     def add_to_mat(self, arr):
         assert self.GM.shape == arr.shape
@@ -107,19 +110,19 @@ class Gmatrix:
     
     def set_mat(self, GM):
         assert GM.shape == self.GM.shape
-        self.GM = GM
+        self.GM = np.copy(GM)
     def set_lmx(self, GI):
         assert GI.shape == self.GI.shape
-        self.GI = GI
+        self.GI = np.copy(GI)
     def set_ret(self, GR):
         assert GR.shape == self.GR.shape
-        self.GR = GR
+        self.GR = np.copy(GR)
     def set_les(self, GL):
         assert GL.shape == self.GL.shape
-        self.GL = GL
+        self.GL = np.copy(GL)
     def set_hf(self, Ghf):
         assert Ghf.shape == self.Ghf.shape
-        self.Ghf = Ghf
+        self.Ghf = np.copy(Ghf)
     
     
     def set_mat_loc(self, tau, arr):
@@ -226,6 +229,9 @@ class Vmatrix:
             Vcomp[n:] = self.VR[n:]
             if n < self.VR.shape[0]-1:
                 Vcomp[:,n+1] = -np.swapaxes(np.swapaxes(self.VR[:,n+1:].conjugate(), -4, -1), -3, -2)
+        return Vcomp
+    def get_adv_comp(self):
+        return -self.get_ret_comp()
         
     
     def add_to_mat(self, arr):
@@ -259,16 +265,16 @@ class Vmatrix:
     
     def set_mat(self, VM):
         assert VM.shape == self.VM.shape
-        self.VM = VM
+        self.VM = np.copy(VM)
     def set_lmx(self, VI):
         assert VI.shape == self.VI.shape
-        self.VI = VI
+        self.VI = np.copy(VI)
     def set_ret(self, VR):
         assert VR.shape == self.VR.shape
-        self.VR = VR
+        self.VR = np.copy(VR)
     def set_les(self, VL):
         assert VL.shape == self.VL.shape
-        self.VL = VL
+        self.VL = np.copy(VL)
     
     
     def set_mat_loc(self, tau, arr):
@@ -317,11 +323,11 @@ class Vmatrix:
 def copy_gmatrix(G):
     nt, ntau, orb = G.get_lmx().shape[:-1]
     newG = Gmatrix(nt, ntau, orb, G.particle_type)
-    newG.set_mat(G.get_mat())
-    newG.set_lmx(G.get_lmx())
-    newG.set_ret(G.get_ret())
-    newG.set_les(G.get_les())
-    newG.set_hf( G.get_hf() )
+    newG.set_mat(np.copy(G.get_mat()))
+    newG.set_lmx(np.copy(G.get_lmx()))
+    newG.set_ret(np.copy(G.get_ret()))
+    newG.set_les(np.copy(G.get_les()))
+    newG.set_hf( np.copy(G.get_hf() ))
     return newG
 
 
@@ -329,10 +335,10 @@ def copy_gmatrix(G):
 def copy_vmatrix(V):
     nt, ntau, orb = V.get_lmx().shape[:-1]
     newV = Vmatrix(nt, ntau, orb, V.particle_type)
-    newV.set_mat(V.get_mat())
-    newV.set_lmx(V.get_lmx())
-    newV.set_ret(V.get_ret())
-    newV.set_les(V.get_les())
+    newV.set_mat(np.copy(V.get_mat()))
+    newV.set_lmx(np.copy(V.get_lmx()))
+    newV.set_ret(np.copy(V.get_ret()))
+    newV.set_les(np.copy(V.get_les()))
     return newV
 
 

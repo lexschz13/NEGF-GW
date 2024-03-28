@@ -2,8 +2,7 @@ import numpy as np
 from numba.experimental import jitclass
 from numba import prange, float64, int32, int8
 from .utils import factorial, binomial
-from .linalg import matrix_inv
-from .contour_funcs import matrix_matrix
+from .linalg import matrix_matrix
 
 
 
@@ -32,12 +31,13 @@ class Interpolator:
     
     """
     def __init__(self, k):
-        row = np.empty((k+1,k+1), dtype=np.int8); col = np.empty((k+1,k+1), dtype=np.int8)
+        assert k < 10, "Avoid overload on interpolation coeffitients"
+        row = np.empty((k+1,k+1), dtype=np.int32); col = np.empty((k+1,k+1), dtype=np.int32)
         for i in range(k+1):
             row[i,:] = i
             col[:,i] = i
         self.k = k
-        self.P = matrix_inv((row**col).astype(np.float64))
+        self.P = np.linalg.inv((row**col).astype(np.float64))
         self.a = -self.P[1,:]
         self.D = np.zeros((k+1,k+1), dtype=np.float64)
         self.s = np.zeros((k+1,k+1))
