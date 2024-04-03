@@ -364,7 +364,7 @@ def boot_loop_hf_kspace(lattice, Gk, Gloc, S, H, H_kin, v, mu, interpol, h, obsv
             Hk = 2*H_kin[0,:interpol.k+1]*np.cos(k_vec[0]) + 2*H_kin[1,:interpol.k+1]*np.cos(k_vec[1]) + 2*H_kin[2,:interpol.k+1]*np.cos(k_vec[2]) + S.get_hf()[:interpol.k+1]
             for tt in range(interpol.k+1):
                 Hk[tt] += H - mu * np.eye(norb)
-            time_evo_k = time_evolution_boot(Hk, interpol)
+            time_evo_k = time_evolution_boot(Hk, interpol, h)
 
             for tt in range(interpol.k+1):
                 # print("Time step", tt)

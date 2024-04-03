@@ -317,7 +317,7 @@ def step_loop_hf_kspace(lattice, Gk, Gloc, S, H, H_kin, v, mu, interpol, h, obsv
                 # print(Hk)
                 assert not np.any(np.isnan(Hk))
                 assert not np.any(np.isinf(Hk))
-                time_evo_k = time_evolution_step(Hk, interpol)
+                time_evo_k = time_evolution_step(Hk, interpol, h)
                 # print("Time evo set")
                 assert not np.any(np.isnan(time_evo_k))
                 assert not np.any(np.isinf(time_evo_k))

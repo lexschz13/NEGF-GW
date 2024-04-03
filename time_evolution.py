@@ -5,7 +5,7 @@ from .linalg import matrix_matrix
 
 
 @njit
-def time_evolution_boot(H, interp):
+def time_evolution_boot(H, interp, h):
     a1 = (3-2*np.sqrt(3))/12
     a2 = (3+2*np.sqrt(3))/12
     c1 = (1-1/np.sqrt(3))/2
@@ -34,8 +34,8 @@ def time_evolution_boot(H, interp):
         for ii in range(V1.shape[0]):
             for jj in range(V1.shape[1]):
                 for kk in range(V2.shape[1]):
-                    V1[ii,kk] += P1[ii,jj] * np.exp(-1j*w1[jj]) * P1[kk,jj].conjugate()
-                    V2[ii,kk] += P2[ii,jj] * np.exp(-1j*w2[jj]) * P2[kk,jj].conjugate()
+                    V1[ii,kk] += P1[ii,jj] * np.exp(-1j*w1[jj] * h) * P1[kk,jj].conjugate()
+                    V2[ii,kk] += P2[ii,jj] * np.exp(-1j*w2[jj] * h) * P2[kk,jj].conjugate()
                     # print("i,j,k", ii, jj, kk)
                     # if np.isnan(V1[ii,kk]):
                     #     print("V1 nan at i,j,k", ii, jj, kk)
@@ -57,7 +57,7 @@ def time_evolution_boot(H, interp):
 
 
 @njit
-def time_evolution_step(H, interp):
+def time_evolution_step(H, interp, h):
     a1 = (3-2*np.sqrt(3))/12
     a2 = (3+2*np.sqrt(3))/12
     c1 = (1-1/np.sqrt(3))/2
@@ -93,8 +93,8 @@ def time_evolution_step(H, interp):
     for ii in range(V1.shape[0]):
         for jj in range(V1.shape[1]):
             for kk in range(V2.shape[1]):
-                V1[ii,kk] += P1[ii,jj] * np.exp(-1j*w1[jj]) * P1[kk,jj].conjugate()
-                V2[ii,kk] += P2[ii,jj] * np.exp(-1j*w2[jj]) * P2[kk,jj].conjugate()
+                V1[ii,kk] += P1[ii,jj] * np.exp(-1j*w1[jj] * h) * P1[kk,jj].conjugate()
+                V2[ii,kk] += P2[ii,jj] * np.exp(-1j*w2[jj] * h) * P2[kk,jj].conjugate()
                 if np.isnan(V1[ii,kk]):
                     print("V1 nan at i,j,k", ii, jj, kk)
                     # print("P1[i,j]", P1[ii,jj])
